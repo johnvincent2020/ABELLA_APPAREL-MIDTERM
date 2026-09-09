@@ -4,9 +4,6 @@ session_start();
 
 require_once 'config.php';
 
-/* =====================================================
-   USER SECURITY
-===================================================== */
 
 if (
     !isset($_SESSION['logged_in']) ||
@@ -22,9 +19,6 @@ if (
 $userId = (int) $_SESSION['user_id'];
 
 
-/* =====================================================
-   CART COUNT
-===================================================== */
 
 $cartCount = 0;
 
@@ -35,9 +29,7 @@ if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
 }
 
 
-/* =====================================================
-   GET USER INFORMATION
-===================================================== */
+
 
 $user = [
     'name' => '',
@@ -64,9 +56,27 @@ if ($result && $result->num_rows > 0) {
 $stmt->close();
 
 
-/* =====================================================
-   UPDATE ACCOUNT
-===================================================== */
+
+$isSubscribed = false;
+
+if (!empty($user['email'])) {
+
+    $subStmt = $conn->prepare("
+        SELECT id
+        FROM subscribers
+        WHERE email = ?
+        LIMIT 1
+    ");
+
+    $subStmt->bind_param("s", $user['email']);
+    $subStmt->execute();
+
+    $subResult = $subStmt->get_result();
+
+    $isSubscribed = $subResult->num_rows > 0;
+
+    $subStmt->close();
+}
 
 $flashSuccess = '';
 $flashError = '';
@@ -90,10 +100,6 @@ if (
     } else {
 
         $newProfilePhoto = $user['profile_photo'];
-
-        /* ---------------------------------------------
-           PROFILE PHOTO UPLOAD
-        --------------------------------------------- */
 
         if (
             isset($_FILES['profile_photo']) &&
@@ -186,10 +192,6 @@ if (
         }
 
 
-        /* ---------------------------------------------
-           UPDATE DATABASE
-        --------------------------------------------- */
-
         if ($flashError === '') {
 
             $stmt = $conn->prepare("
@@ -230,10 +232,6 @@ if (
 }
 
 
-/* =====================================================
-   PROFILE PHOTO PATH
-===================================================== */
-
 $profilePhotoPath = '';
 
 if (!empty($user['profile_photo'])) {
@@ -242,11 +240,6 @@ if (!empty($user['profile_photo'])) {
         'assets/profiles/' .
         basename($user['profile_photo']);
 }
-
-
-/* =====================================================
-   GET USER ORDERS
-===================================================== */
 
 $orders = [];
 
@@ -283,10 +276,6 @@ if ($result) {
 $stmt->close();
 
 
-/* =====================================================
-   GET ORDER ITEMS
-===================================================== */
-
 function getUserOrderItems($conn, $orderId)
 {
     $items = [];
@@ -321,10 +310,6 @@ function getUserOrderItems($conn, $orderId)
     return $items;
 }
 
-
-/* =====================================================
-   ORDER STATISTICS
-===================================================== */
 
 $totalOrders = count($orders);
 $totalSpent = 0;
@@ -361,11 +346,6 @@ foreach ($orders as $order) {
         $lastOrderDate = $order['created_at'];
     }
 }
-
-
-/* =====================================================
-   HELPER FUNCTIONS
-===================================================== */
 
 function e($value)
 {
@@ -457,10 +437,6 @@ function statusNumber($status)
 
 <style>
 
-/* =====================================================
-   RESET
-===================================================== */
-
 * {
     box-sizing: border-box;
     margin: 0;
@@ -495,10 +471,6 @@ input {
     font-family: inherit;
 }
 
-
-/* =====================================================
-   ACCOUNT HERO
-===================================================== */
 
 .account-hero {
     position: relative;
@@ -558,22 +530,12 @@ input {
     line-height: 1.8;
 }
 
-
-/* =====================================================
-   ACCOUNT MAIN
-===================================================== */
-
 .account-main {
     width: 100%;
     max-width: 1250px;
     margin: auto;
     padding: 85px 35px;
 }
-
-
-/* =====================================================
-   PROFILE AREA
-===================================================== */
 
 .profile-section {
     display: grid;
@@ -582,10 +544,6 @@ input {
     margin-bottom: 70px;
 }
 
-
-/* =====================================================
-   PROFILE CARD
-===================================================== */
 
 .profile-card {
     position: relative;
@@ -659,9 +617,26 @@ input {
 .profile-email {
     color: #777;
     font-size: 12px;
-    margin-bottom: 28px;
+    margin-bottom: 12px;
     word-break: break-word;
     text-align: center;
+}
+
+.newsletter-badge {
+    display: inline-block;
+    margin: 0 auto 24px;
+    padding: 6px 14px;
+    border: 1px solid #333;
+    color: #888;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.newsletter-badge.subscribed {
+    border-color: #c49d4c;
+    color: #c49d4c;
 }
 
 .edit-profile-btn {
@@ -692,11 +667,6 @@ input {
     border-color: #c49d4c;
     color: #000;
 }
-
-
-/* =====================================================
-   ACCOUNT OVERVIEW
-===================================================== */
 
 .overview {
     background: #111;
@@ -736,11 +706,6 @@ input {
     line-height: 1.8;
     max-width: 650px;
 }
-
-
-/* =====================================================
-   QUICK LINKS
-===================================================== */
 
 .quick-links {
     display: grid;
@@ -782,11 +747,6 @@ input {
     color: #c49d4c;
 }
 
-
-/* =====================================================
-   FLASH MESSAGES
-===================================================== */
-
 .flash-message {
     margin-bottom: 25px;
     padding: 15px 18px;
@@ -805,11 +765,6 @@ input {
     border-color: #5c2828;
     color: #ff7777;
 }
-
-
-/* =====================================================
-   STATISTICS
-===================================================== */
 
 .account-stats {
     display: grid;
@@ -851,11 +806,6 @@ input {
     color: #c49d4c;
 }
 
-
-/* =====================================================
-   ORDER HEADER
-===================================================== */
-
 .orders-heading {
     display: flex;
     align-items: flex-end;
@@ -882,21 +832,12 @@ input {
     letter-spacing: 1px;
 }
 
-
-/* =====================================================
-   ORDERS
-===================================================== */
-
 .orders-container {
     display: flex;
     flex-direction: column;
     gap: 20px;
 }
 
-
-/* =====================================================
-   ORDER CARD
-===================================================== */
 
 .order-card {
     background: #111;
@@ -930,10 +871,6 @@ input {
     font-size: 10px;
 }
 
-
-/* =====================================================
-   STATUS
-===================================================== */
 
 .order-status {
     display: inline-flex;
@@ -973,10 +910,6 @@ input {
     background: #102718;
 }
 
-
-/* =====================================================
-   ORDER PROGRESS
-===================================================== */
 
 .order-progress {
     padding: 23px;
@@ -1046,10 +979,6 @@ input {
 }
 
 
-/* =====================================================
-   CUSTOMER DETAILS
-===================================================== */
-
 .order-details {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1076,10 +1005,6 @@ input {
     word-break: break-word;
 }
 
-
-/* =====================================================
-   PRODUCTS
-===================================================== */
 
 .products-section {
     padding: 22px;
@@ -1165,11 +1090,6 @@ input {
     white-space: nowrap;
 }
 
-
-/* =====================================================
-   ORDER FOOTER
-===================================================== */
-
 .order-bottom {
     display: flex;
     align-items: center;
@@ -1200,10 +1120,6 @@ input {
     color: #c49d4c;
 }
 
-
-/* =====================================================
-   EMPTY ORDERS
-===================================================== */
 
 .empty-orders {
     padding: 75px 25px;
@@ -1261,10 +1177,6 @@ input {
 }
 
 
-/* =====================================================
-   ACCOUNT BANNER
-===================================================== */
-
 .account-banner {
     padding: 85px 25px;
 
@@ -1305,11 +1217,6 @@ input {
     font-size: 12px;
     line-height: 1.8;
 }
-
-
-/* =====================================================
-   FOOTER
-===================================================== */
 
 .footer {
     background: #000;
@@ -1415,10 +1322,6 @@ input {
     letter-spacing: .7px;
 }
 
-
-/* =====================================================
-   MODAL
-===================================================== */
 
 .modal-overlay {
     position: fixed;
@@ -1596,10 +1499,6 @@ input {
 }
 
 
-/* =====================================================
-   RESPONSIVE
-===================================================== */
-
 @media (max-width: 1000px) {
 
     .profile-section {
@@ -1746,16 +1645,8 @@ input {
 
 <body>
 
-<!-- =====================================================
-     SHARED SITE WRAPPER
-===================================================== -->
-
 <div class="site">
 
-
-<!-- =====================================================
-     HEADER
-===================================================== -->
 
 <header class="header">
 
@@ -1927,10 +1818,6 @@ input {
 </header>
 
 
-<!-- =====================================================
-     ACCOUNT HERO
-===================================================== -->
-
 <section class="account-hero">
 
     <div class="account-hero-content">
@@ -1956,10 +1843,6 @@ input {
 </section>
 
 
-<!-- =====================================================
-     MAIN ACCOUNT
-===================================================== -->
-
 <main class="account-main">
 
 
@@ -1979,11 +1862,6 @@ input {
     </div>
 
 <?php endif; ?>
-
-
-<!-- =====================================================
-     PROFILE SECTION
-===================================================== -->
 
 <section class="profile-section">
 
@@ -2045,6 +1923,21 @@ input {
         <div class="profile-email">
             <?= e($user['email']) ?>
         </div>
+
+
+        <?php if ($isSubscribed): ?>
+
+            <div class="newsletter-badge subscribed">
+                ✓ Subscribed to @abellaapparel
+            </div>
+
+        <?php else: ?>
+
+            <div class="newsletter-badge">
+                Not Subscribed to @abellaapparel
+            </div>
+
+        <?php endif; ?>
 
 
         <button
@@ -2153,11 +2046,6 @@ input {
 
 </section>
 
-
-<!-- =====================================================
-     STATISTICS
-===================================================== -->
-
 <section class="account-stats">
 
 
@@ -2210,11 +2098,6 @@ input {
     </div>
 
 </section>
-
-
-<!-- =====================================================
-     ORDER HISTORY
-===================================================== -->
 
 <section id="orders">
 
@@ -2654,10 +2537,6 @@ input {
 </main>
 
 
-<!-- =====================================================
-     BANNER
-===================================================== -->
-
 <section class="account-banner">
 
     <div class="account-banner-inner">
@@ -2679,11 +2558,6 @@ input {
     </div>
 
 </section>
-
-
-<!-- =====================================================
-     FOOTER
-===================================================== -->
 
 <footer class="footer">
 
@@ -2894,10 +2768,6 @@ input {
 </footer>
 
 
-<!-- =====================================================
-     EDIT ACCOUNT MODAL
-===================================================== -->
-
 <div
     class="modal-overlay"
     id="accountModal"
@@ -3027,10 +2897,6 @@ input {
 
 <script>
 
-/* =====================================================
-   ACCOUNT MODAL
-===================================================== */
-
 function openAccountModal() {
 
     const modal =
@@ -3064,10 +2930,6 @@ function closeAccountModal(event) {
 }
 
 
-/* =====================================================
-   ESCAPE KEY
-===================================================== */
-
 document.addEventListener(
     'keydown',
     function(event) {
@@ -3079,10 +2941,6 @@ document.addEventListener(
     }
 );
 
-
-/* =====================================================
-   AUTO HIDE SUCCESS MESSAGE
-===================================================== */
 
 setTimeout(function() {
 

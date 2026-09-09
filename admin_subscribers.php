@@ -23,109 +23,62 @@ if ($result) {
 $search = trim($_GET['search'] ?? '');
 if ($search !== '') {
     $safeSearch = $conn->real_escape_string($search);
-    $customerQuery = "
+    $subscriberQuery = "
         SELECT
-            u.id,
-            u.name,
-            u.email,
-            u.profile_photo,
-            u.created_at,
-            COUNT(o.id) AS order_count,
-            COALESCE(SUM(o.total_amount), 0) AS total_spent,
-            MAX(o.created_at) AS last_order
-        FROM users u
-        LEFT JOIN orders o
-            ON u.id = o.user_id
-        WHERE u.role = 'user'
-        AND (
-            u.name LIKE '%$safeSearch%'
-            OR u.email LIKE '%$safeSearch%'
-        )
-        GROUP BY
-            u.id,
-            u.name,
-            u.email,
-            u.profile_photo,
-            u.created_at
-        ORDER BY u.id DESC
+            s.id,
+            s.email,
+            s.subscribed_at,
+            u.id AS user_id,
+            u.name AS user_name
+        FROM subscribers s
+        LEFT JOIN users u
+            ON u.email = s.email
+        WHERE s.email LIKE '%$safeSearch%'
+        ORDER BY s.subscribed_at DESC
     ";
 } else {
-    $customerQuery = "
+    $subscriberQuery = "
         SELECT
-            u.id,
-            u.name,
-            u.email,
-            u.created_at,
-            u.profile_photo,
-            COUNT(o.id) AS order_count,
-            COALESCE(SUM(o.total_amount), 0) AS total_spent,
-            MAX(o.created_at) AS last_order
-        FROM users u
-        LEFT JOIN orders o
-            ON u.id = o.user_id
-        WHERE u.role = 'user'
-        GROUP BY
-            u.id,
-            u.name,
-            u.email,
-            u.profile_photo,
-            u.created_at
-        ORDER BY u.id DESC
+            s.id,
+            s.email,
+            s.subscribed_at,
+            u.id AS user_id,
+            u.name AS user_name
+        FROM subscribers s
+        LEFT JOIN users u
+            ON u.email = s.email
+        ORDER BY s.subscribed_at DESC
     ";
 }
-$customers = [];
-$result = $conn->query($customerQuery);
+$subscribers = [];
+$result = $conn->query($subscriberQuery);
 if ($result) {
     while ($row = $result->fetch_assoc()) {
-        $customers[] = $row;
+        $subscribers[] = $row;
     }
 }
-$totalCustomers = 0;
-$customersWithOrders = 0;
-$totalCustomerOrders = 0;
-$totalCustomerSpending = 0;
+$totalSubscribers = 0;
+$registeredSubscribers = 0;
+$guestSubscribers = 0;
 $result = $conn->query("
     SELECT COUNT(*) AS total
-    FROM users
-    WHERE role = 'user'
+    FROM subscribers
 ");
 if ($result) {
     $row = $result->fetch_assoc();
-    $totalCustomers = (int)($row['total'] ?? 0);
+    $totalSubscribers = (int)($row['total'] ?? 0);
 }
 $result = $conn->query("
-    SELECT COUNT(DISTINCT u.id) AS total
-    FROM users u
-    INNER JOIN orders o
-        ON u.id = o.user_id
-    WHERE u.role = 'user'
-");
-if ($result) {
-    $row = $result->fetch_assoc();
-    $customersWithOrders = (int)($row['total'] ?? 0);
-}
-$result = $conn->query("
-    SELECT COUNT(o.id) AS total
-    FROM orders o
+    SELECT COUNT(*) AS total
+    FROM subscribers s
     INNER JOIN users u
-        ON u.id = o.user_id
-    WHERE u.role = 'user'
+        ON u.email = s.email
 ");
 if ($result) {
     $row = $result->fetch_assoc();
-    $totalCustomerOrders = (int)($row['total'] ?? 0);
+    $registeredSubscribers = (int)($row['total'] ?? 0);
 }
-$result = $conn->query("
-    SELECT COALESCE(SUM(o.total_amount), 0) AS total
-    FROM orders o
-    INNER JOIN users u
-        ON u.id = o.user_id
-    WHERE u.role = 'user'
-");
-if ($result) {
-    $row = $result->fetch_assoc();
-    $totalCustomerSpending = (float)($row['total'] ?? 0);
-}
+$guestSubscribers = $totalSubscribers - $registeredSubscribers;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -136,7 +89,7 @@ if ($result) {
         content="width=device-width, initial-scale=1.0"
     >
     <title>
-        Customers - Abella Apparel Admin
+        Subscribers - Abella Apparel Admin
     </title>
     <style>
         * {
@@ -183,7 +136,7 @@ if ($result) {
             max-height: 60px;
             object-fit: contain;
             object-position: left center;
-        }  
+        }
         .menu-title {
             color: #888;
             font-size: 10px;
@@ -295,7 +248,7 @@ if ($result) {
         .stats {
             display: grid;
             grid-template-columns:
-            repeat(4, 1fr);
+            repeat(3, 1fr);
             gap: 15px;
             margin-bottom: 25px;
         }
@@ -317,7 +270,10 @@ if ($result) {
             font-weight: 600;
             color: #ffffff;
         }
-        .customer-section {
+        .stat-card .number.gold {
+            color: #c49d4c;
+        }
+        .subscriber-section {
             background: #111;
             border: 1px solid #292929;
             border-radius: 0;
@@ -387,7 +343,7 @@ if ($result) {
             width: 100%;
             border-collapse: collapse;
             background: #111;
-            min-width: 850px;
+            min-width: 650px;
         }
         th {
             background: #1a1a1a;
@@ -412,63 +368,31 @@ if ($result) {
         tbody tr:hover td {
             background: #181818;
         }
-        .customer-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .customer-avatar {
-            width: 40px;
-            height: 40px;
-            min-width: 40px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #c49d4c;
-            font-size: 13px;
-            font-weight: 700;
-            overflow: hidden;
-        }
-        .customer-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-        .customer-avatar span {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-        }
-        .customer-details {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .customer-name {
-            color: #fff;
-            font-size: 13px;
-            font-weight: 700;
-        }
-        .customer-email {
-            color: #888;
-            font-size: 11px;
-        }
-        .order-count {
+        .subscriber-email {
             color: #fff;
             font-weight: 700;
-        }
-        .money {
-            color: #c49d4c;
-            font-weight: 700;
+            font-size: 13px;
         }
         .date-text {
             color: #888;
             font-size: 12px;
+        }
+        .status {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .status.registered {
+            color: #7edb8a;
+        }
+        .status.guest {
+            color: #888;
+        }
+        .account-name {
+            color: #666;
+            font-size: 11px;
+            margin-top: 2px;
         }
         .empty-state {
             padding: 50px 20px;
@@ -485,7 +409,7 @@ if ($result) {
         @media (max-width: 1100px) {
             .stats {
                 grid-template-columns:
-                    repeat(2, 1fr);
+                    repeat(1, 1fr);
             }
         }
         @media (max-width: 700px) {
@@ -573,10 +497,7 @@ if ($result) {
         <a href="admin_orders.php">
             Orders
         </a>
-        <a
-            href="admin_customers.php"
-            class="active"
-        >
+        <a href="admin_customers.php">
             Customers
         </a>
         <a href="admin_products.php">
@@ -593,7 +514,10 @@ if ($result) {
                 </span>
             <?php endif; ?>
         </a>
-        <a href="admin_subscribers.php">
+        <a
+            href="admin_subscribers.php"
+            class="active"
+        >
             Subscribers
         </a>
         <a
@@ -613,10 +537,10 @@ if ($result) {
     <div class="topbar">
         <div class="page-title">
             <h1>
-                Customers
+                Subscribers
             </h1>
             <p>
-                Manage your Abella Apparel customers
+                Everyone who signed up for the Abella Apparel newsletter
             </p>
         </div>
         <div class="topbar-right">
@@ -631,55 +555,44 @@ if ($result) {
     <div class="stats">
         <div class="stat-card">
             <h3>
-                Total Customers
+                Total Subscribers
             </h3>
             <div class="number">
-                <?= number_format($totalCustomers) ?>
+                <?= number_format($totalSubscribers) ?>
             </div>
         </div>
         <div class="stat-card">
             <h3>
-                Customers With Orders
+                Registered Accounts
             </h3>
-            <div class="number">
-                <?= number_format($customersWithOrders) ?>
+            <div class="number gold">
+                <?= number_format($registeredSubscribers) ?>
             </div>
         </div>
         <div class="stat-card">
             <h3>
-                Total Orders
+                Guest Subscribers
             </h3>
             <div class="number">
-                <?= number_format($totalCustomerOrders) ?>
-            </div>
-        </div>
-        <div class="stat-card">
-            <h3>
-                Total Spending
-            </h3>
-            <div class="number">
-                ₱<?= number_format(
-                    $totalCustomerSpending,
-                    2
-                ) ?>
+                <?= number_format($guestSubscribers) ?>
             </div>
         </div>
     </div>
-    <section class="customer-section">
+    <section class="subscriber-section">
         <div class="section-header">
             <h2>
-                Customer List
+                Subscriber List
             </h2>
             <form
                 method="GET"
-                action="admin_customers.php"
+                action="admin_subscribers.php"
                 class="search-form"
             >
                 <input
                     type="text"
                     name="search"
                     class="search-input"
-                    placeholder="Search customer..."
+                    placeholder="Search email..."
                     value="<?= htmlspecialchars($search) ?>"
                 >
                 <button
@@ -690,7 +603,7 @@ if ($result) {
                 </button>
                 <?php if ($search !== ''): ?>
                     <a
-                        href="admin_customers.php"
+                        href="admin_subscribers.php"
                         class="clear-btn"
                     >
                         CLEAR
@@ -703,165 +616,77 @@ if ($result) {
                 <thead>
                     <tr>
                         <th>
-                            Customer
+                            Email
                         </th>
                         <th>
-                            Orders
+                            Subscribed On
                         </th>
                         <th>
-                            Total Spent
-                        </th>
-                        <th>
-                            Last Order
-                        </th>
-                        <th>
-                            Registered
+                            Able To Log In
                         </th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (count($customers) > 0): ?>
-                        <?php foreach ($customers as $customer): ?>
+                    <?php if (count($subscribers) > 0): ?>
+                        <?php foreach ($subscribers as $subscriber): ?>
                             <?php
-                            $customerName =
-                                $customer['name'] ??
-                                'Unknown Customer';
-                            $customerEmail =
-                                $customer['email'] ??
-                                '';
-                            $firstLetter =
-                                strtoupper(
-                                    substr(
-                                        trim($customerName),
-                                        0,
-                                        1
-                                    )
-                                );
+                            $canLogIn =
+                                !empty($subscriber['user_id']);
                             ?>
                             <tr>
                                 <td>
-                                    <div class="customer-info">
-                                        <div class="customer-avatar">
-                                            <?php if (
-                                                !empty(
-                                                    $customer['profile_photo']
-                                                )
-                                            ): ?>
-                                                <img
-                                                    src="assets/profiles/<?= htmlspecialchars(
-                                                        basename(
-                                                            $customer['profile_photo']
-                                                        )
-                                                    ) ?>"
-                                                    alt="<?= htmlspecialchars(
-                                                        $customerName
-                                                    ) ?>"
-                                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                                >
-                                                <span style="display:none;">
-                                                    <?= htmlspecialchars(
-                                                        $firstLetter
-                                                    ) ?>
-                                                </span>
-                                            <?php else: ?>
-                                                <span>
-                                                    <?= htmlspecialchars(
-                                                        $firstLetter
-                                                    ) ?>
-                                                </span>
-                                            <?php endif; ?>
-                                        </div>
-                                        <div class="customer-details">
-                                            <div class="customer-name">
-                                                <?= htmlspecialchars(
-                                                    $customerName
-                                                ) ?>
-                                            </div>
-                                            <div class="customer-email">
-
-                                                <?= htmlspecialchars(
-                                                    $customerEmail
-                                                ) ?>
-                                            </div>
-                                        </div>
+                                    <div class="subscriber-email">
+                                        <?= htmlspecialchars(
+                                            $subscriber['email']
+                                        ) ?>
                                     </div>
+                                    <?php if ($canLogIn): ?>
+                                        <div class="account-name">
+                                            Account:
+                                            <?= htmlspecialchars(
+                                                $subscriber['user_name']
+                                            ) ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span class="order-count">
-                                        <?= number_format(
-                                            (int)(
-                                                $customer['order_count']
-                                                ?? 0
+                                    <span class="date-text">
+                                        <?= date(
+                                            'M d, Y',
+                                            strtotime(
+                                                $subscriber['subscribed_at']
                                             )
                                         ) ?>
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="money">
-                                        ₱<?= number_format(
-                                            (float)(
-                                                $customer['total_spent']
-                                                ?? 0
-                                            ),
-                                            2
-                                        ) ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="date-text">
-                                        <?php if (
-                                            !empty(
-                                                $customer['last_order']
-                                            )
-                                        ): ?>
-                                            <?= date(
-                                                'M d, Y',
-                                                strtotime(
-                                                    $customer['last_order']
-                                                )
-                                            ) ?>
-                                        <?php else: ?>
-                                            No orders
-                                        <?php endif; ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="date-text">
-                                        <?php if (
-                                            !empty(
-                                                $customer['created_at']
-                                            )
-                                        ): ?>
-                                            <?= date(
-                                                'M d, Y',
-                                                strtotime(
-                                                    $customer['created_at']
-                                                )
-                                            ) ?>
-                                        <?php else: ?>
-                                            —
-                                        <?php endif; ?>
-                                    </span>
+                                    <?php if ($canLogIn): ?>
+                                        <span class="status registered">
+                                            Yes - Registered
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="status guest">
+                                            No - Guest Only
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
                             <td
-                                colspan="5"
+                                colspan="3"
                                 class="empty-state"
                             >
                                 <strong>
-                                    No customers found
+                                    No subscribers found
                                 </strong>
                                 <?php if ($search !== ''): ?>
-                                    No customer matched
-                                    "<?= htmlspecialchars(
-                                        $search
-                                    ) ?>".
+                                    No subscriber matched
+                                    "<?= htmlspecialchars($search) ?>".
                                 <?php else: ?>
-                                    There are currently no
-                                    registered customers.
+                                    No one has subscribed to the
+                                    newsletter yet.
                                 <?php endif; ?>
                             </td>
                         </tr>

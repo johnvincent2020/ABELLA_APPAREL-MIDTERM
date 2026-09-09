@@ -97,6 +97,43 @@ if ($result) {
     $totalSales = $row['total'] ?? 0;
 }
 
+$totalSubscribers = 0;
+
+$result = $conn->query("
+    SELECT COUNT(*) AS total
+    FROM subscribers
+");
+
+if ($result) {
+
+    $row = $result->fetch_assoc();
+
+    $totalSubscribers = $row['total'] ?? 0;
+}
+
+$recentSubscribers = [];
+
+$result = $conn->query("
+    SELECT
+        s.id,
+        s.email,
+        s.subscribed_at,
+        u.id AS user_id
+    FROM subscribers s
+    LEFT JOIN users u
+        ON u.email = s.email
+    ORDER BY s.subscribed_at DESC
+    LIMIT 5
+");
+
+if ($result) {
+
+    while ($row = $result->fetch_assoc()) {
+
+        $recentSubscribers[] = $row;
+    }
+}
+
 $recentOrders = [];
 
 $result = $conn->query("
@@ -420,6 +457,12 @@ tr:last-child td {
 .status.cancelled {
     color: #f28b8b;
 }
+.status.registered {
+    color: #7edb8a;
+}
+.status.guest {
+    color: #888;
+}
 .quick-actions {
     display: grid;
     grid-template-columns:
@@ -615,6 +658,9 @@ tr:last-child td {
                     <?= $unreadMessages ?>
                 </span>
             <?php endif; ?>
+        </a>
+        <a href="admin_subscribers.php">
+            Subscribers
         </a>
         <a
             href="index.php"
@@ -827,6 +873,12 @@ tr:last-child td {
                         <?php endif; ?>
                     </a>
                     <a
+                        href="admin_subscribers.php"
+                        class="quick-action"
+                    >
+                        View Subscribers
+                    </a>
+                    <a
                         href="index.php"
                         target="_blank"
                         class="quick-action"
@@ -963,6 +1015,76 @@ tr:last-child td {
         <?php else: ?>
             <div class="empty">
                 No products found.
+            </div>
+        <?php endif; ?>
+    </div>
+    <div class="panel">
+        <div class="panel-header">
+            <h2>
+                Newsletter Subscribers
+            </h2>
+            <a href="admin_subscribers.php">
+                VIEW ALL (<?= number_format($totalSubscribers) ?>)
+            </a>
+        </div>
+        <?php if (!empty($recentSubscribers)): ?>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>
+                                Email
+                            </th>
+                            <th>
+                                Subscribed On
+                            </th>
+                            <th>
+                                Account Status
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach (
+                        $recentSubscribers
+                        as $subscriber
+                    ): ?>
+                        <?php
+                        $canLogIn =
+                            !empty($subscriber['user_id']);
+                        ?>
+                        <tr>
+                            <td>
+                                <?= htmlspecialchars(
+                                    $subscriber['email']
+                                ) ?>
+                            </td>
+                            <td>
+                                <?= date(
+                                    'M d, Y',
+                                    strtotime(
+                                        $subscriber['subscribed_at']
+                                    )
+                                ) ?>
+                            </td>
+                            <td>
+                                <?php if ($canLogIn): ?>
+                                    <span class="status registered">
+                                        Registered
+                                    </span>
+                                <?php else: ?>
+                                    <span class="status guest">
+                                        Guest
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div class="empty">
+                No subscribers yet.
             </div>
         <?php endif; ?>
     </div>

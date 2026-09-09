@@ -551,3 +551,36 @@ body {
     color: #000;
 }
  
+/* Newsletter subscribe form */
+.email-box {
+    position: relative;
+}
+.email-box input.email-input {
+    flex: 1;
+    height: 100%;
+    padding-left: 10px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #fff;
+    font-size: 8px;
+    font-family: inherit;
+}
+.email-box input.email-input::placeholder {
+    color: #ddd;
+}
+.newsletter-message {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 6px;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.newsletter-message.success {
+    color: #7edb8a;
+}
+.newsletter-message.error {
+    color: #f28b8b;
+}

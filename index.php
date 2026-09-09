@@ -473,12 +473,16 @@ if ($result) {
             </p>
         </div>
         <div class="email-box">
-            <span>
-                Enter your email address
-            </span>
-            <b>
+            <input
+                type="email"
+                id="newsletter-email"
+                class="email-input"
+                placeholder="Enter your email address"
+            >
+            <b onclick="subscribeNewsletter()">
                 SUBSCRIBE
             </b>
+            <span id="newsletter-message" class="newsletter-message"></span>
         </div>
     </section>
     <section class="instagram">
@@ -652,6 +656,57 @@ function addToCart(productId) {
     form.appendChild(cartInput);
     document.body.appendChild(form);
     form.submit();
+}
+
+function subscribeNewsletter() {
+    const isLoggedIn =
+        <?= $isLoggedIn ? "true" : "false" ?>;
+
+    if (!isLoggedIn) {
+        window.location.href = "login.php";
+        return;
+    }
+
+    const emailInput =
+        document.getElementById("newsletter-email");
+    const messageBox =
+        document.getElementById("newsletter-message");
+    const email = emailInput.value.trim();
+
+    messageBox.textContent = "";
+    messageBox.className = "newsletter-message";
+
+    if (email === "") {
+        messageBox.textContent =
+            "Please enter your email address.";
+        messageBox.classList.add("error");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("email", email);
+
+    fetch("subscribe.php", {
+        method: "POST",
+        body: formData
+    })
+    .then(function (response) {
+        return response.json();
+    })
+    .then(function (data) {
+        messageBox.textContent = data.message;
+        messageBox.classList.add(
+            data.success ? "success" : "error"
+        );
+        if (data.success) {
+            emailInput.value = "";
+        }
+    })
+    .catch(function () {
+        messageBox.textContent =
+            "Something went wrong. Please try again.";
+        messageBox.classList.add("error");
+    });
 }
 </script>
 </body>

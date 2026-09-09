@@ -912,6 +912,9 @@ tr:hover td {
                 </span>
             <?php endif; ?>
         </a>
+        <a href="admin_subscribers.php">
+            Subscribers
+        </a>
         <a
             href="index.php"
             target="_blank"
